@@ -69,7 +69,8 @@ export async function extract(ctx: Context, file?: { bytes: Buffer; mime: string
   const content: Anthropic.MessageParam["content"] = [];
   if (file && file.mime === "application/pdf") {
     const text = await pdfToText(file.bytes);
-    if (text.replace(/\s/g, "").length >= 60) {
+    // Hebrew PDFs often come out of the text layer reversed: let the model read the page itself
+    if (text.replace(/\s/g, "").length >= 60 && !/[\u0590-\u05FF]/.test(text)) {
       content.push({ type: "text", text: `${header}\nDOCUMENT TEXT:\n${text}\n\nEMAIL BODY:\n${(ctx.body || "").slice(0, 800)}` });
     } else {
       content.push({ type: "document", source: { type: "base64", media_type: "application/pdf", data: file.bytes.toString("base64") } });

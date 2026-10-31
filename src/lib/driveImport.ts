@@ -69,7 +69,7 @@ export async function processDriveFile(fileId: string): Promise<string> {
   const x = await extract({ fileName: name, from: "Drive", subject: "ארכיון חשבוניות ב־Drive" }, { bytes, mime });
   // An archive of invoices: keep anything that reads as a tax document with an amount, even if the model hesitated
   const looksLikeDoc = !!x && (x.is_invoice || (x.doc_type !== "other" && x.amount != null));
-  if (!x || !looksLikeDoc) return "not_invoice";
+  if (!x || !looksLikeDoc) return x ? `not_invoice:${x.doc_type}:${x.amount ?? ""}` : "not_invoice:unread";
 
   // The same document saved from another source (mail, Sumit) has different bytes: compare what it says
   if (x.amount != null) {
