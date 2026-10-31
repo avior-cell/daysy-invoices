@@ -31,7 +31,7 @@ export async function pickMonth(m?: string) {
 
 export default async function Shell({ path, month, months, reviewCount, blue, children }: { path: string; month: string; months: string[]; reviewCount?: number; blue?: boolean; children: React.ReactNode }) {
   return (
-    <div className={blue ? "blue-page" : undefined}>
+    <div className={blue ? "home-page" : undefined}>
       <header className="top">
         <div className="top-in">
           <div className="brand-row">

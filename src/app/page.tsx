@@ -14,8 +14,8 @@ function greeting() {
   return h < 5 ? "לילה טוב" : h < 12 ? "בוקר טוב" : h < 17 ? "צהריים טובים" : h < 21 ? "ערב טוב" : "לילה טוב";
 }
 
-/** The receipt at the top: what is still missing, a barcode of the month's charges, and the "בתיק" stamp. */
-function Receipt({ month, kpi, daysLeft }: { month: string; kpi: { required: number; filed: number; missingIls: number; missing: number; suggest: number; nofile: number }; daysLeft: number }) {
+/** The receipt under the wave: a barcode of the month's charges and the "בתיק" stamp. */
+function Receipt({ month, kpi }: { month: string; kpi: { required: number; filed: number } }) {
   const pct = kpi.required ? Math.round((kpi.filed / kpi.required) * 100) : 0;
   const open = kpi.required - kpi.filed;
   const n = Math.min(kpi.required, 60) || 1;
@@ -24,28 +24,25 @@ function Receipt({ month, kpi, daysLeft }: { month: string; kpi: { required: num
   let zig = "M0 0 ";
   for (let x = 0; x <= 600; x += 12) zig += `L${x + 6} 9 L${x + 12} 0 `;
   return (
-    <section className="receipt" aria-label={`סיכום ${monthName(month)}`}>
+    <section className="receipt" aria-label={`הקלסר של ${monthName(month)}`}>
       <div className="paper">
         <div className="row">
-          <span>הקלסר של {monthName(month)}</span>
-          <span>{daysLeft > 0 ? `${daysLeft} ימים להגשה` : "מועד ההגשה עבר"}</span>
+          <span>הקלסר של {monthName(month).split(" ")[0]}</span>
         </div>
-        <div className="amount num">{ils(kpi.missingIls)}</div>
-        <div className="what">{open ? `חסרים, ב־${open} חיובים` : "הכל בתיק. אפשר להגיש לרו״ח."}</div>
         <div className="barcode" aria-hidden="true">
           {Array.from({ length: n }, (_, i) => (
             <i key={i} className={i < done ? "on" : undefined} style={{ height: heights[i % heights.length] }} />
           ))}
         </div>
-        <div className="row" style={{ marginTop: 6, maxWidth: "64%" }}>
+        <div className="row" style={{ marginTop: 6 }}>
           <span>{kpi.filed} בתיק</span>
           <span>{open} חסרים</span>
         </div>
         <svg className="stamp" viewBox="0 0 104 104" role="img" aria-label={`${pct} אחוז בתיק`}>
           <circle cx="52" cy="52" r="47" fill="none" stroke="#2e3fe0" strokeWidth="3" />
           <circle cx="52" cy="52" r="36" fill="none" stroke="#2e3fe0" strokeWidth="1.5" />
-          <text x="52" y="52" textAnchor="middle" fontSize="24" fill="#2e3fe0">{pct}%</text>
-          <text x="52" y="70" textAnchor="middle" fontSize="13" fill="#2e3fe0">בתיק</text>
+          <text x="52" y="54" textAnchor="middle" fontSize="25" fontWeight="600" fill="#2e3fe0">{pct}%</text>
+          <text x="52" y="72" textAnchor="middle" fontSize="14" fill="#2e3fe0">בתיק</text>
         </svg>
       </div>
       <svg className="zig" viewBox="0 0 600 10" preserveAspectRatio="none" aria-hidden="true">
@@ -53,6 +50,14 @@ function Receipt({ month, kpi, daysLeft }: { month: string; kpi: { required: num
       </svg>
     </section>
   );
+}
+
+/** One headline for the month, in Daysy's voice: short, confident, the state in a few words. */
+function headline(pct: number, open: number) {
+  if (!open) return "החודש סגור.";
+  if (pct >= 85) return "כמעט הכל בתיק.";
+  if (pct >= 50) return "יותר מחצי כבר בתיק.";
+  return "יש לנו עבודה החודש.";
 }
 
 export default async function Home({ searchParams }: { searchParams: { m?: string } }) {
@@ -72,24 +77,25 @@ export default async function Home({ searchParams }: { searchParams: { m?: strin
   const name = user.split("@")[0].replace(/^./, (c) => c.toUpperCase());
   const freshCount = freshTotal || 0;
 
+  const open = kpi.required - kpi.filed;
+  const pct = kpi.required ? Math.round((kpi.filed / kpi.required) * 100) : 0;
   return (
     <Shell path="/" month={month} months={months} reviewCount={kpi.suggest} blue>
-      <div className="home">
-        <div className="hello">
-          <img src="/buddy.jpg" alt="באדי" />
-          <div>
-            <div className="s">
-              {greeting()}, {name}
-            </div>
-            <div className="t">{freshCount ? `ביומיים האחרונים נכנסו ${freshCount} חשבוניות חדשות` : kpi.required - kpi.filed ? "הנה מה שנשאר לסגור" : "הקלסר סגור, כל הכבוד"}</div>
-          </div>
+      <section className="wave-hero">
+        <img className="buddy" src="/buddy.jpg" alt="באדי, חשבונית מחייכת עם חותמת" />
+        <div className="hi">
+          {greeting()}, {name}. {daysLeft > 0 ? `עוד ${daysLeft} ימים להגשה.` : "מועד ההגשה עבר."}
         </div>
+        <h1>{headline(pct, open)}</h1>
+        {open > 0 ? <div className="offer num">{ils(kpi.missingIls)} עוד בלי חשבונית</div> : <div className="offer">אפשר לשלוח לרו״ח</div>}
+      </section>
 
-        <Receipt month={month} kpi={kpi} daysLeft={daysLeft} />
+      <div className="home">
+        <Receipt month={month} kpi={kpi} />
 
         {freshCount > 0 && (
-          <div className="msg soft">
-            <span>{freshCount > 4 ? `נכנסו לקלסר ${freshCount} מסמכים. האחרונים:` : "נכנסו לקלסר לבד, בלי שתצטרך לעשות כלום:"}</span>
+          <div className="msg">
+            <span>{freshCount === 1 ? "נכנסה חשבונית חדשה, ושייכתי אותה." : `נכנסו ${freshCount} חשבוניות חדשות, ושייכתי אותן.`}</span>
             <div className="mini">
               {fresh!.map((f) => (
                 <div key={f.id}>
@@ -99,64 +105,70 @@ export default async function Home({ searchParams }: { searchParams: { m?: strin
                 </div>
               ))}
             </div>
+            <span className="close">אין צורך לעשות כלום.</span>
           </div>
         )}
 
         {kpi.suggest > 0 && (
           <div className="msg yellow">
-            <span>{kpi.suggest === 1 ? "חשבונית אחת מחכה שתגיד לי אם היא נכונה." : `${kpi.suggest} חשבוניות מחכות שתגיד לי אם הן נכונות. לוקח דקה.`}</span>
-            <div className="acts">
-              <Link className="btn dark" href={`/review?m=${month}`}>בוא נעבור עליהן</Link>
+            <span>{kpi.suggest === 1 ? "התאמה אחת מחכה לאישור." : `${kpi.suggest} התאמות מחכות לאישור.`}</span>
+            <div className="acts" style={{ justifyContent: "space-between" }}>
+              <span className="close">דקה אחת, וזה בתיק.</span>
+              <Link className="btn dark" href={`/review?m=${month}`}>לאשר</Link>
             </div>
           </div>
         )}
 
-        {groups.map((g, i) => {
+        {groups.map((g) => {
           const link = billingLink(g.rows[0].e.vendor_text);
           const one = g.rows.length === 1 ? g.rows[0] : null;
+          const many = g.rows.length > 1;
           return (
-            <div className="msg paper" key={g.vendor}>
+            <div className="msg" key={g.vendor}>
               <span>
-                {i === 0 ? "הכי גדול שנשאר: " : "עוד אחד: "}
-                <b>{g.vendor}</b>, {g.rows.length > 1 ? `${g.rows.length} חיובים, ` : ""}
-                <span className="num">{ils(g.ils)}</span>.
-                {link ? ` את החשבונית מורידים מ־${link.label}.` : one?.st === "nofile" ? " מצאתי אותה, רק חסר הקובץ." : " אם יש לך אותה, צלם או העלה."}
+                <b>{g.vendor}</b>
+                {many ? `, ${g.rows.length} חיובים` : ""}, <span className="num">{ils(g.ils)}</span>.
+                <br />
+                {link ? (many ? "דוח חודשי אחד מכסה את כולם." : `החשבונית מחכה ב־${link.label}.`) : one?.st === "nofile" ? "מצאתי אותה, חסר רק הקובץ." : "אם החשבונית אצלך, מספיק לצלם."}
               </span>
-              <div className="acts">
-                {link && (
-                  <a className="btn primary" href={link.url} target="_blank" rel="noopener">
-                    להורדה מ־{link.label}
-                  </a>
+              <div className="acts" style={{ justifyContent: "space-between" }}>
+                <span className="close">{link ? (many ? "הורדה אחת, וכולם בתיק." : "הורדה אחת, וזה בתיק.") : "צילום אחד, וזה בתיק."}</span>
+                {link ? (
+                  <a className="btn primary" href={link.url} target="_blank" rel="noopener">להורדה</a>
+                ) : one ? (
+                  <Upload expenseId={one.e.id} label="לצלם" primary />
+                ) : (
+                  <Link className="btn primary" href={`/expenses?m=${month}&f=todo`}>לפרטים</Link>
                 )}
-                {one ? <Upload expenseId={one.e.id} label="העלאה" /> : <Link className="btn" href={`/expenses?m=${month}&f=todo`}>לפרטים</Link>}
               </div>
             </div>
           );
         })}
 
         {feesOpen.length > 0 && (
-          <div className="msg paper">
-            <span>חסרות חשבוניות עמלה מ{feesOpen.map((f) => f.name.split(",")[0]).join(", ")}. בלי זה רו״ח לא יכול לסגור את הסליקה.</span>
+          <div className="msg">
+            <span>חסרות חשבוניות העמלה של {feesOpen.map((f) => f.name.split(",")[0]).join(" ושל ")}.<br />רו״ח צריך אותן כדי לסגור את הסליקה.</span>
             <div className="acts">
               {feesOpen.slice(0, 2).map((f) => (
-                <Upload key={f.key} feeKey={f.key} month={month} label={`העלאה, ${f.name.split(",")[0]}`} />
+                <Upload key={f.key} feeKey={f.key} month={month} label={`להעלות, ${f.name.split(",")[0]}`} />
               ))}
               <ActionButton action={setFee.bind(null, month, feesOpen[0].key, "not_required", undefined)} label="לא היו עמלות" />
             </div>
           </div>
         )}
 
-        {kpi.required > 0 && kpi.required === kpi.filed && feesOpen.length === 0 && (
+        {kpi.required > 0 && !open && feesOpen.length === 0 && (
           <div className="msg yellow">
-            <span>הכל בתיק. אפשר לשלוח לרו״ח.</span>
-            <div className="acts">
-              <a className="btn dark" href={`/api/export?m=${month}`}>ייצוא לאקסל</a>
+            <span>כל החשבוניות של {monthName(month).split(" ")[0]} בתיק.</span>
+            <div className="acts" style={{ justifyContent: "space-between" }}>
+              <span className="close">קובץ אחד, ורו״ח מרוצה.</span>
+              <a className="btn dark" href={`/api/export?m=${month}`}>לייצוא</a>
             </div>
           </div>
         )}
 
         <div className="quick">
-          <Link href={`/expenses?m=${month}&f=missing`}>מה עוד חסר?</Link>
+          <Link href={`/expenses?m=${month}&f=missing`}>מה עוד חסר</Link>
           <a href={`/api/export?m=${month}`}>ייצוא לאקסל</a>
           {folder && (
             <a href={`https://drive.google.com/drive/folders/${folder.folder_id}`} target="_blank" rel="noopener">
