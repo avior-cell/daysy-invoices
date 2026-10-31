@@ -1,7 +1,7 @@
 /*
  * Money Buddy. A personal assistant for invoices, in Daysy's voice.
  * Carbon blue (the copy sheet of an Israeli invoice book), ink, highlighter yellow for "needs you",
- * stamp red for "missing". Done is a blue stamp.
+ * red for "missing". Progress is a binder that fills with blue.
  * From Daysy: the Placebo FM type, the wave header, the pill for the one number that matters,
  * centred headlines, short lines and a closing line in demibold.
  */
@@ -179,12 +179,11 @@ table.t th { font-size: 12px; color: var(--muted); font-weight: 600; background:
 .receipt { position: relative; color: var(--ink); }
 .receipt .paper { background: #fff; border-radius: 4px 4px 0 0; padding: 14px 16px 12px; position: relative; overflow: hidden; box-shadow: 0 1px 0 var(--line); }
 .receipt .zig { display: block; width: 100%; height: 10px; }
-.receipt .row { display: flex; justify-content: space-between; font-size: 14px; color: var(--muted); gap: 12px; max-width: calc(100% - 112px); white-space: nowrap; }
-.barcode { display: flex; gap: 2px; align-items: flex-end; height: 30px; margin-top: 12px; max-width: calc(100% - 112px); }
+.receipt .row { display: flex; justify-content: space-between; font-size: 14px; color: var(--muted); gap: 12px; max-width: calc(100% - 96px); white-space: nowrap; }
+.barcode { display: flex; gap: 2px; align-items: flex-end; height: 30px; margin-top: 12px; max-width: calc(100% - 96px); }
 .barcode i { display: block; flex: 1; border-radius: 1px; background: var(--line); }
 .barcode i.on { background: var(--ink); }
-.stamp { position: absolute; inset-inline-end: 12px; top: 8px; width: 92px; height: 92px; transform: rotate(-12deg); }
-.stamp text { font-family: var(--f-head); }
+.receipt .binder { position: absolute; inset-inline-end: 14px; top: 8px; }
 
 .msg { justify-self: stretch; border-radius: 2px 16px 16px 16px; padding: 12px 14px; display: grid; gap: 8px; font-size: 16px; line-height: 1.4; background: #fff; color: var(--ink); }
 .msg.yellow { background: var(--yellow); }
@@ -198,6 +197,66 @@ table.t th { font-size: 12px; color: var(--muted); font-weight: 600; background:
 .home .quick a { flex: none; border: 2px solid var(--line); background: #fff; color: var(--ink); border-radius: 999px; padding: 0 14px; font-size: 14px; min-height: 38px; display: inline-flex; align-items: center; }
 .home .quick a:hover { text-decoration: none; border-color: var(--ink); }
 @media (prefers-reduced-motion: no-preference) {
-  .stamp { animation: thump .5s .3s cubic-bezier(.2, 1.4, .4, 1) both; }
-  @keyframes thump { 0% { transform: scale(2) rotate(-24deg); opacity: 0; } 100% { transform: scale(1) rotate(-12deg); opacity: 1; } }
+  .receipt .binder { animation: rise .5s .2s cubic-bezier(.2, 1.3, .4, 1) both; }
+  @keyframes rise { 0% { transform: translateY(14px); opacity: 0; } 100% { transform: none; opacity: 1; } }
+  .filed-in { animation: rise .35s ease-out both; }
 }
+
+/* Every page now speaks like the home: wave on top, Buddy's notes below */
+.wave-hero.small { padding-bottom: 76px; }
+.wave-hero.small h1 { font-size: 30px; }
+.home.wide { max-width: 760px; }
+.home h2 { font-size: 20px; }
+.gear { color: #fff; display: inline-grid; place-items: center; width: 44px; height: 44px; border-radius: 50%; }
+.gear:hover { background: rgba(255, 255, 255, .12); }
+.btn.text { background: transparent; border-color: transparent; color: var(--blue); font-weight: 600; text-decoration: underline; text-underline-offset: 3px; }
+.btn.text:hover { border-color: transparent; }
+.btn.big { min-height: 54px; font-size: 18px; width: 100%; }
+.home .list { border: 0; border-radius: 16px; }
+.home .chips { flex-wrap: nowrap; overflow-x: auto; scrollbar-width: none; padding-bottom: 2px; }
+.home .chip { flex: none; min-height: 38px; display: inline-flex; align-items: center; gap: 6px; }
+
+/* Review: the charge and the invoice, stapled together */
+.staple-card { background: #fff; border-radius: 16px; padding: 14px; display: grid; gap: 10px; }
+.staple-card .charge { background: var(--bg); border-radius: 12px; padding: 12px 14px; text-align: center; display: grid; gap: 2px; }
+.staple-card .doc { border: 2px solid var(--ink); border-radius: 6px; padding: 14px; text-align: center; display: grid; gap: 4px; }
+.staple-card .k { font-size: 14px; color: var(--muted); }
+.staple-card .who { font-size: 17px; font-weight: 600; overflow-wrap: anywhere; }
+.staple-card .amt { font-size: 26px; font-weight: 600; letter-spacing: -0.02em; }
+.staple-card .amt.same { background: linear-gradient(transparent 55%, var(--yellow) 55%); padding: 0 4px; justify-self: center; }
+.staple { justify-self: center; margin: -16px 0; position: relative; z-index: 2; }
+.staple-card .why { text-align: center; font-weight: 600; color: var(--blue); }
+.staple-card .links { display: flex; gap: 14px; justify-content: center; flex-wrap: wrap; font-size: 14px; }
+.staple-card .acts { display: grid; gap: 6px; }
+.staple-card .acts .row2 { display: flex; justify-content: center; gap: 18px; }
+
+/* The shelf: one binder per month */
+.shelf { background: #d9cdb8; border-radius: 14px; padding: 12px 12px 0; }
+.shelf .row6 { display: grid; grid-template-columns: repeat(6, minmax(0, 1fr)); gap: 6px; align-items: end; }
+.shelf .board { height: 10px; margin: 0 -12px 14px; background: #b9a988; box-shadow: 0 5px 0 #9c8c6c; }
+.shelf .board:last-child { margin-bottom: 0; border-radius: 0 0 14px 14px; }
+.spine { position: relative; display: block; height: 118px; overflow: hidden; border-radius: 5px 5px 2px 2px; background: #fff; border: 2px solid var(--ink); color: var(--ink); }
+.spine:hover { text-decoration: none; }
+.spine.closed { background: var(--blue); color: #fff; }
+.spine.future { background: transparent; border: 2px dashed #9c8c6c; color: #8a7a5c; }
+.spine[aria-current="true"] { box-shadow: 0 0 0 3px var(--yellow); transform: translateY(-6px); }
+.spine .ring { position: absolute; top: 10px; left: 50%; margin-left: -6px; width: 12px; height: 12px; border-radius: 50%; background: var(--bg); border: 2px solid currentColor; z-index: 2; }
+.spine .name { position: absolute; top: 30px; inset-inline: 0; margin: auto; writing-mode: vertical-rl; font-weight: 600; font-size: 14px; z-index: 2; height: 56px; display: flex; align-items: center; justify-content: center; }
+.spine .fill { position: absolute; bottom: 0; inset-inline: 0; z-index: 1; }
+.spine .p { position: absolute; bottom: 5px; inset-inline: 0; text-align: center; font-size: 11px; font-weight: 600; z-index: 2; }
+
+/* Checklist on the month-close page */
+.checks { display: grid; gap: 10px; }
+.checks div { display: flex; gap: 10px; align-items: flex-start; }
+.checks svg { flex: none; margin-top: 2px; }
+.checks .no { color: var(--muted); }
+
+/* Settings */
+.seg { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px; }
+.seg label { position: relative; border: 2px solid var(--line); background: #fff; border-radius: 999px; min-height: 46px; display: grid; place-items: center; cursor: pointer; font-size: 16px; }
+.seg input { position: absolute; opacity: 0; }
+.seg label:has(input:checked) { background: var(--ink); border-color: var(--ink); color: #fff; font-weight: 600; }
+.seg label:has(input:focus-visible) { outline: 3px solid var(--yellow); outline-offset: 2px; }
+.field { display: grid; gap: 6px; font-size: 15px; color: var(--muted); }
+.field input { color: var(--ink); font-size: 17px; border: 2px solid var(--line); border-radius: 12px; padding: 0 14px; min-height: 48px; background: #fff; }
+.kv { display: flex; justify-content: space-between; align-items: center; gap: 10px; }

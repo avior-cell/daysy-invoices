@@ -20,7 +20,7 @@ export default function CameraFab() {
       const a = j.read?.amount != null ? `${j.read.currency && j.read.currency !== "ILS" ? j.read.currency + " " : "₪"}${j.read.amount}` : "";
       setMsg(`נשמר בקלסר: ${v}${a}`);
       router.refresh();
-    } else setMsg(j.error || "לא הצלחתי לשמור. נסו שוב.");
+    } else setMsg(j.error || "לא הצלחתי לשמור. אפשר לנסות שוב.");
     setTimeout(() => setMsg(""), 5000);
   }
   return (

@@ -3,6 +3,8 @@ import { revalidatePath } from "next/cache";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 import { db } from "@/lib/db";
+import { saveMe } from "@/lib/voice";
+import { redirect } from "next/navigation";
 
 async function who() {
   const s = await getServerSession(authOptions);
@@ -45,4 +47,13 @@ export async function setFee(month: string, key: string, status: "open" | "not_r
   await who();
   await db().from("fee_requirements").upsert({ month, key, status, invoice_id: invoiceId || null });
   revalidatePath("/", "layout");
+}
+
+export async function saveProfile(form: FormData) {
+  const by = await who();
+  const g = form.get("g") === "f" ? "f" : "m";
+  await saveMe(by, String(form.get("name") || ""), g);
+  revalidatePath("/", "layout");
+  const next = String(form.get("next") || "/");
+  redirect(next.startsWith("/") && !next.startsWith("//") ? next : "/");
 }

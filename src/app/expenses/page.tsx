@@ -1,5 +1,7 @@
 import Link from "next/link";
-import Shell, { pickMonth, requireUser } from "@/components/Shell";
+import Shell, { pickMonth, requireMe } from "@/components/Shell";
+import Hero from "@/components/Hero";
+import { v } from "@/lib/voice";
 import ActionButton from "@/components/ActionButton";
 import Upload from "@/components/Upload";
 import { money, day, STATUS_LABEL } from "@/components/fmt";
@@ -8,17 +10,17 @@ import { approveMatch, setRequired } from "../actions";
 
 export const dynamic = "force-dynamic";
 const FILTERS = [
-  ["todo", "להשלמה"],
+  ["todo", "מה נשאר"],
   ["missing", "חסרות"],
   ["suggest", "לאישור"],
   ["nofile", "חסר קובץ"],
-  ["filed", "בתיקייה"],
-  ["excluded", "לא נדרש"],
+  ["filed", "בתיק"],
+  ["excluded", "לא צריך"],
   ["all", "הכל"],
 ] as const;
 
 export default async function Expenses({ searchParams }: { searchParams: { m?: string; f?: string } }) {
-  await requireUser();
+  const me = await requireMe();
   const { month, months } = await pickMonth(searchParams.m);
   const f = searchParams.f || "todo";
   const { rows, kpi, invoices } = await loadMonth(month);
@@ -28,15 +30,8 @@ export default async function Expenses({ searchParams }: { searchParams: { m?: s
 
   return (
     <Shell path="/expenses" month={month} months={months} reviewCount={kpi.suggest}>
-      <div className="section-head">
-        <h1>הוצאות · {monthName(month)}</h1>
-        <span className="sub">כל החיובים בבנק ובאשראי</span>
-      </div>
-      <div style={{ display: "flex", gap: 8, flexWrap: "wrap", marginBottom: 10 }}>
-        <a className="btn small" href={`/api/export?m=${month}`}>
-          ייצוא לאקסל
-        </a>
-      </div>
+      <Hero small title={`ההוצאות של ${monthName(month).split(" ")[0]}.`} pill={`${kpi.required} חיובים, ${kpi.filed} בתיק`} />
+      <div className="home wide">
       <nav className="chips" aria-label="סינון">
         {FILTERS.map(([k, l]) => (
           <Link key={k} className="chip" aria-current={f === k ? "true" : undefined} href={`/expenses?m=${month}&f=${k}`}>
@@ -45,7 +40,7 @@ export default async function Expenses({ searchParams }: { searchParams: { m?: s
         ))}
       </nav>
       <div className="list">
-        {shown.length === 0 && <div className="empty">אין חיובים בסינון הזה.</div>}
+        {shown.length === 0 && <div className="empty">{f === "todo" ? "לא נשאר כלום. אפשר לנוח." : "אין כאן חיובים."}</div>}
         {shown.map((r) => {
           const link = billingLink(r.e.vendor_text);
           const cands = r.st === "missing" || r.st === "suggest" ? candidatesFor(r.e, invoices, used) : [];
@@ -55,9 +50,9 @@ export default async function Expenses({ searchParams }: { searchParams: { m?: s
                 <div>
                   <div className="title">{r.e.vendor_text}</div>
                   <div className="meta">
-                    <span className="num">{day(r.e.date)}</span> · {r.e.source === "card" ? "אשראי" : "בנק"}
-                    {r.e.purpose ? ` · ${r.e.purpose}` : ""}
-                    {r.st === "excluded" && r.why ? ` · ${r.why}` : ""}
+                    {r.e.source === "card" ? "כרטיס" : "העברה"}, <span className="num">{day(r.e.date)}</span>
+                    {r.e.purpose ? `, ${r.e.purpose}` : ""}
+                    {r.st === "excluded" && r.why ? `, ${r.why}` : ""}
                   </div>
                 </div>
                 <div style={{ display: "grid", justifyItems: "end", gap: 4 }}>
@@ -70,8 +65,8 @@ export default async function Expenses({ searchParams }: { searchParams: { m?: s
                   <div className="cand">
                     <span>
                       {r.st === "suggest" ? "הצעה: " : "חשבונית: "}
-                      {r.inv.vendor_name} · <span className="num">{money(r.inv.amount, r.inv.currency)}</span> · <span className="num">{day(r.inv.doc_date)}</span>
-                      {r.how === "auto" ? " · התאמה אוטומטית" : ""}
+                      {r.inv.vendor_name}, <span className="num">{money(r.inv.amount, r.inv.currency)}</span>, <span className="num">{day(r.inv.doc_date)}</span>
+                      {r.how === "auto" ? ". באדי שייך לבד." : ""}
                     </span>
                     <span style={{ display: "flex", gap: 6 }}>
                       {r.inv.drive_url && (
@@ -88,33 +83,35 @@ export default async function Expenses({ searchParams }: { searchParams: { m?: s
                   .map((c) => (
                     <div className="cand" key={c.i.id}>
                       <span>
-                        {c.i.vendor_name || c.i.email_from} · <span className="num">{money(c.i.amount, c.i.currency)}</span> · <span className="num">{day(c.i.doc_date)}</span>
+                        {c.i.vendor_name || c.i.email_from}, <span className="num">{money(c.i.amount, c.i.currency)}</span>, <span className="num">{day(c.i.doc_date)}</span>
                         {c.covers ? (
-                          <span className="sub"> · {c.i.doc_type === "statement" ? "דוח חודשי שמכסה כמה חיובים" : "חשבונית ששולמה בכמה תשלומים"}</span>
+                          <span className="sub">. {c.i.doc_type === "statement" ? "דוח חודשי שמכסה כמה חיובים" : "חשבונית ששולמה בכמה תשלומים"}</span>
                         ) : (
-                          !c.exact && <span className="sub"> · סכום שונה</span>
+                          !c.exact && <span className="sub">. סכום שונה</span>
                         )}
                       </span>
-                      <ActionButton action={approveMatch.bind(null, r.e.id, c.i.id)} label="שייך" />
+                      <ActionButton action={approveMatch.bind(null, r.e.id, c.i.id)} label="לשייך" />
                     </div>
                   ))}
                 <div style={{ display: "flex", gap: 6, flexWrap: "wrap" }}>
-                  {r.st !== "filed" && r.st !== "excluded" && <Upload expenseId={r.e.id} label="העלאת חשבונית" />}
+                  {r.st !== "filed" && r.st !== "excluded" && <Upload expenseId={r.e.id} label={v(me.g, "צלם או העלה", "צלמי או העלי")} />}
                   {link && r.st !== "filed" && r.st !== "excluded" && (
                     <a className="btn small" href={link.url} target="_blank" rel="noopener">
                       {link.label}
                     </a>
                   )}
                   {r.st === "excluded" ? (
-                    <ActionButton action={setRequired.bind(null, r.e.id, true)} label="דורש חשבונית" />
+                    <ActionButton action={setRequired.bind(null, r.e.id, true)} label="צריך חשבונית" />
                   ) : (
-                    r.st !== "filed" && <ActionButton action={setRequired.bind(null, r.e.id, false)} label="לא נדרשת חשבונית" />
+                    r.st !== "filed" && <ActionButton action={setRequired.bind(null, r.e.id, false)} label="לא צריך חשבונית" />
                   )}
                 </div>
               </div>
             </details>
           );
         })}
+      </div>
+      <a className="btn text" href={`/api/export?m=${month}`}>להוריד את החודש לאקסל</a>
       </div>
     </Shell>
   );

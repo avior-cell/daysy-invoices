@@ -19,11 +19,11 @@ export default function Upload({ expenseId, feeKey, month, label = "העלאת �
     const j = r ? await r.json().catch(() => ({})) : {};
     if (r?.ok) {
       setState("done");
-      setMsg("החשבונית נשמרה בתיקיית החודש");
+      setMsg("נשמר בקלסר של החודש.");
       router.refresh();
     } else {
       setState("error");
-      setMsg(j.error || "ההעלאה נכשלה. נסו שוב.");
+      setMsg(j.error || "ההעלאה לא עברה. אפשר לנסות שוב.");
     }
     setTimeout(() => setState("idle"), 4000);
   }

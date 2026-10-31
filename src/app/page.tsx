@@ -1,5 +1,7 @@
 import Link from "next/link";
-import Shell, { pickMonth, requireUser } from "@/components/Shell";
+import Shell, { pickMonth, requireMe } from "@/components/Shell";
+import Binder from "@/components/Binder";
+import { v } from "@/lib/voice";
 import Upload from "@/components/Upload";
 import ActionButton from "@/components/ActionButton";
 import { ils, money } from "@/components/fmt";
@@ -14,7 +16,7 @@ function greeting() {
   return h < 5 ? "לילה טוב" : h < 12 ? "בוקר טוב" : h < 17 ? "צהריים טובים" : h < 21 ? "ערב טוב" : "לילה טוב";
 }
 
-/** The receipt under the wave: a barcode of the month's charges and the "בתיק" stamp. */
+/** The receipt under the wave: a barcode of the month's charges and the binder filling up. */
 function Receipt({ month, kpi }: { month: string; kpi: { required: number; filed: number } }) {
   const pct = kpi.required ? Math.round((kpi.filed / kpi.required) * 100) : 0;
   const open = kpi.required - kpi.filed;
@@ -38,12 +40,7 @@ function Receipt({ month, kpi }: { month: string; kpi: { required: number; filed
           <span>{kpi.filed} בתיק</span>
           <span>{open} חסרים</span>
         </div>
-        <svg className="stamp" viewBox="0 0 104 104" role="img" aria-label={`${pct} אחוז בתיק`}>
-          <circle cx="52" cy="52" r="47" fill="none" stroke="#2e3fe0" strokeWidth="3" />
-          <circle cx="52" cy="52" r="36" fill="none" stroke="#2e3fe0" strokeWidth="1.5" />
-          <text x="52" y="54" textAnchor="middle" fontSize="25" fontWeight="600" fill="#2e3fe0">{pct}%</text>
-          <text x="52" y="72" textAnchor="middle" fontSize="14" fill="#2e3fe0">בתיק</text>
-        </svg>
+        <Binder className="binder" pct={pct} w={60} h={84} />
       </div>
       <svg className="zig" viewBox="0 0 600 10" preserveAspectRatio="none" aria-hidden="true">
         <path d={zig + "L600 0 Z"} fill="#fff" />
@@ -61,7 +58,7 @@ function headline(pct: number, open: number) {
 }
 
 export default async function Home({ searchParams }: { searchParams: { m?: string } }) {
-  const user = await requireUser();
+  const me = await requireMe();
   const { month, months } = await pickMonth(searchParams.m);
   const { rows, feeRows, kpi } = await loadMonth(month);
   const since = new Date(Date.now() - 48 * 3600e3).toISOString();
@@ -74,13 +71,13 @@ export default async function Home({ searchParams }: { searchParams: { m?: strin
   const daysLeft = Math.ceil((due.getTime() - Date.now()) / 864e5);
   const groups = openByVendor(rows).slice(0, 3);
   const feesOpen = feeRows.filter((f) => f.st === "missing" || f.st === "nofile");
-  const name = user.split("@")[0].replace(/^./, (c) => c.toUpperCase());
+  const name = me.name;
   const freshCount = freshTotal || 0;
 
   const open = kpi.required - kpi.filed;
   const pct = kpi.required ? Math.round((kpi.filed / kpi.required) * 100) : 0;
   return (
-    <Shell path="/" month={month} months={months} reviewCount={kpi.suggest} blue>
+    <Shell path="/" month={month} months={months} reviewCount={kpi.suggest}>
       <section className="wave-hero">
         <img className="buddy" src="/buddy.jpg" alt="באדי, חשבונית מחייכת עם חותמת" />
         <div className="hi">
@@ -111,7 +108,7 @@ export default async function Home({ searchParams }: { searchParams: { m?: strin
 
         {kpi.suggest > 0 && (
           <div className="msg yellow">
-            <span>{kpi.suggest === 1 ? "התאמה אחת מחכה לאישור." : `${kpi.suggest} התאמות מחכות לאישור.`}</span>
+            <span>{kpi.suggest === 1 ? "התאמה אחת מחכה לך." : `${kpi.suggest} התאמות מחכות לך.`}</span>
             <div className="acts" style={{ justifyContent: "space-between" }}>
               <span className="close">דקה אחת, וזה בתיק.</span>
               <Link className="btn dark" href={`/review?m=${month}`}>לאשר</Link>
@@ -129,7 +126,7 @@ export default async function Home({ searchParams }: { searchParams: { m?: strin
                 <b>{g.vendor}</b>
                 {many ? `, ${g.rows.length} חיובים` : ""}, <span className="num">{ils(g.ils)}</span>.
                 <br />
-                {link ? (many ? "דוח חודשי אחד מכסה את כולם." : `החשבונית מחכה ב־${link.label}.`) : one?.st === "nofile" ? "מצאתי אותה, חסר רק הקובץ." : "אם החשבונית אצלך, מספיק לצלם."}
+                {link ? (many ? "דוח חודשי אחד מכסה את כולם." : `החשבונית מחכה ב־${link.label}.`) : one?.st === "nofile" ? "מצאתי אותה, חסר רק הקובץ." : v(me.g, "אם החשבונית אצלך, צלם אותה.", "אם החשבונית אצלך, צלמי אותה.")}
               </span>
               <div className="acts" style={{ justifyContent: "space-between" }}>
                 <span className="close">{link ? (many ? "הורדה אחת, וכולם בתיק." : "הורדה אחת, וזה בתיק.") : "צילום אחד, וזה בתיק."}</span>
@@ -159,10 +156,10 @@ export default async function Home({ searchParams }: { searchParams: { m?: strin
 
         {kpi.required > 0 && !open && feesOpen.length === 0 && (
           <div className="msg yellow">
-            <span>כל החשבוניות של {monthName(month).split(" ")[0]} בתיק.</span>
+            <span>כל החשבוניות של {monthName(month).split(" ")[0]} בתיק.<br />נשאר רק לשלוח לרו״ח.</span>
             <div className="acts" style={{ justifyContent: "space-between" }}>
-              <span className="close">קובץ אחד, ורו״ח מרוצה.</span>
-              <a className="btn dark" href={`/api/export?m=${month}`}>לייצוא</a>
+              <span className="close">לחיצה אחת, והחודש סגור.</span>
+              <Link className="btn dark" href={`/close?m=${month}`}>לסגור את החודש</Link>
             </div>
           </div>
         )}
@@ -175,6 +172,7 @@ export default async function Home({ searchParams }: { searchParams: { m?: strin
               התיקייה ב־Drive
             </a>
           )}
+          <Link href={`/close?m=${month}`}>סגירת החודש</Link>
           <Link href={`/documents?m=${month}`}>כל המסמכים</Link>
         </div>
       </div>
