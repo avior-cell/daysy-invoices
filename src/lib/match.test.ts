@@ -37,6 +37,9 @@ test("exclusions cover loans, interest spelling and salary", () => {
   assert.equal(exclusionReason("הו”ק הלו' רבית", "", "bank"), "עמלות, ריבית ומט״ח");
   assert.equal(exclusionReason("ביטוח לאומי", "", "bank"), "שכר ומיסים");
   assert.equal(exclusionReason("תפוז שליחויות בע”מ", "", "card"), null);
+  // "פרעון <ספק>" is a card payment to a real supplier
+  assert.equal(exclusionReason("פרעון עא אייר דיגיטל", "", "card"), null);
+  assert.equal(exclusionReason("פועלים פירעון מידי", "", "card"), "עמלות, ריבית ומט״ח");
   assert.equal(exclusionReason("הפקדה לפקדון", "", "bank"), "העברה פנימית");
   assert.equal(exclusionReason("הע' סגירה/ניוד", "", "bank"), "העברה פנימית");
   assert.equal(exclusionReason("עמ'הקצאת אשראי", "", "bank"), "עמלות, ריבית ומט״ח");
