@@ -1,7 +1,6 @@
 import { createHash } from "node:crypto";
 import type { gmail_v1 } from "googleapis";
-import { db, getSyncState, setSyncState } from "./db";
-import { gmailFor } from "./google";
+import { db } from "./db";
 import { extract, looksLikeInvoice, type Extracted } from "./extract";
 import { fetchInvoice, invoiceLinks } from "./links";
 import { invoiceFileName, uploadToMonth } from "./drive";
@@ -149,93 +148,4 @@ export async function processMessage(gmail: Gmail, id: string): Promise<string> 
     return "link";
   }
   return "not_invoice";
-}
-
-async function alreadyScanned(ids: string[]) {
-  if (!ids.length) return new Set<string>();
-  const { data } = await db().from("scanned_messages").select("message_id").in("message_id", ids);
-  return new Set((data || []).map((r) => r.message_id as string));
-}
-
-async function processBatch(gmail: Gmail, ids: string[], stats: Record<string, number>) {
-  const seen = await alreadyScanned(ids);
-  const todo = ids.filter((id) => !seen.has(id));
-  // Small concurrency keeps us well inside Gmail's per-user quota
-  for (let i = 0; i < todo.length; i += 4) {
-    await Promise.all(
-      todo.slice(i, i + 4).map(async (id) => {
-        let result = "error";
-        try {
-          result = await processMessage(gmail, id);
-        } catch (e) {
-          const err = e as Error & { response?: { status?: number }; status?: number };
-          const msg = `${err.status || err.response?.status || ""} ${err.message || String(e)}`.trim().slice(0, 500);
-          console.error("gmail message failed", id, msg);
-          const { data: prev } = await db().from("scan_errors").select("attempts").eq("message_id", id).maybeSingle();
-          await db().from("scan_errors").upsert({ message_id: id, stage: "process", error: msg, attempts: (prev?.attempts || 0) + 1, last_at: new Date().toISOString() });
-          // Give up after 3 tries so one broken message never blocks the scan
-          if ((prev?.attempts || 0) + 1 >= 3) result = "error_final";
-        }
-        stats[result] = (stats[result] || 0) + 1;
-        if (result !== "error") await db().from("scanned_messages").upsert({ message_id: id, result });
-      }),
-    );
-  }
-  stats.seen = (stats.seen || 0) + ids.length;
-}
-
-/**
- * Full mailbox scan: every message in every label, archive included (spam and trash excluded),
- * paged with pageToken until the end. Runs in time-boxed slices and resumes from the saved page,
- * so it works within serverless time limits and never stops at 50 or 500 messages.
- */
-export async function fullScan(mailbox: string, budgetMs = 45_000) {
-  const key = `gmail:${mailbox}`;
-  const gmail = await gmailFor(mailbox);
-  const state = await getSyncState(key);
-  if (state?.full_scan_done) return { done: true, stats: state.stats };
-  const stats: Record<string, number> = { ...(state?.stats || {}) };
-  let pageToken = state?.full_scan_page || undefined;
-  if (!state?.cursor) {
-    const profile = await gmail.users.getProfile({ userId: "me" });
-    // Remember where "now" is, so incremental sync picks up anything that arrives during the full scan
-    await setSyncState(key, { cursor: profile.data.historyId, stats });
-  }
-  const started = Date.now();
-  do {
-    const res = await gmail.users.messages.list({ userId: "me", maxResults: 40, pageToken, includeSpamTrash: false });
-    await processBatch(gmail, (res.data.messages || []).map((x) => x.id!), stats);
-    pageToken = res.data.nextPageToken || undefined;
-    await setSyncState(key, { full_scan_page: pageToken || null, full_scan_done: !pageToken, stats });
-  } while (pageToken && Date.now() - started < budgetMs);
-  return { done: !pageToken, stats };
-}
-
-/** Incremental sync from the last historyId: only messages added since the previous run. */
-export async function incrementalSync(mailbox: string) {
-  const key = `gmail:${mailbox}`;
-  const gmail = await gmailFor(mailbox);
-  const state = await getSyncState(key);
-  if (!state?.cursor) return fullScan(mailbox);
-  const stats: Record<string, number> = {};
-  let pageToken: string | undefined;
-  let latest = state.cursor;
-  const ids = new Set<string>();
-  try {
-    do {
-      const res = await gmail.users.history.list({ userId: "me", startHistoryId: state.cursor, historyTypes: ["messageAdded"], pageToken });
-      for (const h of res.data.history || []) for (const a of h.messagesAdded || []) if (a.message?.id) ids.add(a.message.id);
-      latest = res.data.historyId || latest;
-      pageToken = res.data.nextPageToken || undefined;
-    } while (pageToken);
-  } catch (e) {
-    // historyId expired (older than about a week): fall back to a scan of the last 14 days
-    const res = await gmail.users.messages.list({ userId: "me", q: "newer_than:14d", maxResults: 500 });
-    for (const m of res.data.messages || []) ids.add(m.id!);
-    latest = (await gmail.users.getProfile({ userId: "me" })).data.historyId!;
-  }
-  const list = [...ids];
-  for (let i = 0; i < list.length; i += 100) await processBatch(gmail, list.slice(i, i + 100), stats);
-  await setSyncState(key, { cursor: latest });
-  return { done: true, stats };
 }

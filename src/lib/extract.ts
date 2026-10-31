@@ -22,7 +22,7 @@ Return ONLY a JSON object:
 {"is_invoice": boolean, "doc_type": "tax_invoice"|"receipt"|"invoice_receipt"|"credit_note"|"other", "vendor_name": short issuer name or null, "vendor_tax_id": issuer ח.פ/ע.מ/VAT id or null, "amount": final total paid including VAT as a number or null, "currency": "ILS"|"USD"|"EUR"|"GBP", "doc_date": "YYYY-MM-DD" or null, "doc_number": string or null, "confidence": 0..1}`;
 
 let anthropic: Anthropic | null = null;
-const ai = () => (anthropic ??= new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY }));
+const ai = () => (anthropic ??= new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY, maxRetries: 4 }));
 const MODEL = () => process.env.EXTRACT_MODEL || "claude-haiku-5-5";
 
 export async function pdfToText(bytes: Buffer): Promise<string> {

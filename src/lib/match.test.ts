@@ -33,10 +33,14 @@ test("rejected pair is not matched again", () => {
 });
 
 test("exclusions cover loans, interest spelling and salary", () => {
-  assert.equal(exclusionReason("הו”ק הלואה קרן", "bank"), "עמלות, ריבית ומט״ח");
-  assert.equal(exclusionReason("הו”ק הלו' רבית", "bank"), "עמלות, ריבית ומט״ח");
-  assert.equal(exclusionReason("ביטוח לאומי", "bank"), "שכר ומיסים");
-  assert.equal(exclusionReason("תפוז שליחויות בע”מ", "card"), null);
+  assert.equal(exclusionReason("הו”ק הלואה קרן", "", "bank"), "עמלות, ריבית ומט״ח");
+  assert.equal(exclusionReason("הו”ק הלו' רבית", "", "bank"), "עמלות, ריבית ומט״ח");
+  assert.equal(exclusionReason("ביטוח לאומי", "", "bank"), "שכר ומיסים");
+  assert.equal(exclusionReason("תפוז שליחויות בע”מ", "", "card"), null);
+  assert.equal(exclusionReason("עמ'הקצאת אשראי", "", "bank"), "עמלות, ריבית ומט״ח");
+  // A real supplier stays required even when its purpose mentions commission or the company name
+  assert.equal(exclusionReason("אלוהה א.מ גרופ בע”מ", "עמלת מכירה רבעונית 1", "bank"), null);
+  assert.equal(exclusionReason("ע.א אייר דיגיטל בע”מ", "ריטיינר מרץ ויוואה", "bank"), null);
 });
 
 test("invoice links are unwrapped from tracking redirects", () => {

@@ -1,7 +1,8 @@
 import type { Metadata } from "next";
 import "./globals.css";
 
-export const metadata: Metadata = { title: "מעקב חשבוניות Daysy" };
+export const metadata: Metadata = { title: "Money Buddy", description: "כל הוצאה מול חשבונית, בלי לרדוף אחרי מיילים" };
+export const viewport = { width: "device-width", initialScale: 1, viewportFit: "cover" as const };
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
