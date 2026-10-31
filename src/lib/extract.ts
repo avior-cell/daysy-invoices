@@ -1,5 +1,7 @@
 import Anthropic from "@anthropic-ai/sdk";
-import pdf from "pdf-parse";
+// Import the library file directly: the package entry reads a test PDF from disk when bundled
+// @ts-expect-error no types for the deep path
+import pdf from "pdf-parse/lib/pdf-parse.js";
 
 export type Extracted = {
   is_invoice: boolean;

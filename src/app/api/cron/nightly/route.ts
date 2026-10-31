@@ -11,6 +11,6 @@ export async function GET(req: Request) {
   }
   const mailbox = process.env.INVOICE_MAILBOX!;
   const state = await getSyncState(`gmail:${mailbox}`);
-  const gmail = state?.full_scan_done ? await incrementalSync(mailbox) : await fullScan(mailbox, 270_000);
+  const gmail = state?.full_scan_done ? await incrementalSync(mailbox) : await fullScan(mailbox, 240_000);
   return NextResponse.json({ gmail });
 }

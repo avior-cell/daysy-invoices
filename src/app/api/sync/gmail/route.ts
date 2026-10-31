@@ -17,5 +17,11 @@ export async function GET() {
 export async function POST() {
   const session = await getServerSession(authOptions);
   if (!session) return NextResponse.json({ error: "unauthorized" }, { status: 401 });
-  return NextResponse.json(await fullScan(process.env.INVOICE_MAILBOX!, 240_000));
+  try {
+    return NextResponse.json(await fullScan(process.env.INVOICE_MAILBOX!, 45_000));
+  } catch (e) {
+    const msg = (e as Error).message || String(e);
+    console.error("full scan failed", msg);
+    return NextResponse.json({ error: msg.slice(0, 300) }, { status: 500 });
+  }
 }

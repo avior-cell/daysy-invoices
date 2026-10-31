@@ -168,7 +168,13 @@ async function processBatch(gmail: Gmail, ids: string[], stats: Record<string, n
         try {
           result = await processMessage(gmail, id);
         } catch (e) {
-          console.error("gmail message failed", id, (e as Error).message);
+          const err = e as Error & { response?: { status?: number }; status?: number };
+          const msg = `${err.status || err.response?.status || ""} ${err.message || String(e)}`.trim().slice(0, 500);
+          console.error("gmail message failed", id, msg);
+          const { data: prev } = await db().from("scan_errors").select("attempts").eq("message_id", id).maybeSingle();
+          await db().from("scan_errors").upsert({ message_id: id, stage: "process", error: msg, attempts: (prev?.attempts || 0) + 1, last_at: new Date().toISOString() });
+          // Give up after 3 tries so one broken message never blocks the scan
+          if ((prev?.attempts || 0) + 1 >= 3) result = "error_final";
         }
         stats[result] = (stats[result] || 0) + 1;
         if (result !== "error") await db().from("scanned_messages").upsert({ message_id: id, result });
@@ -183,7 +189,7 @@ async function processBatch(gmail: Gmail, ids: string[], stats: Record<string, n
  * paged with pageToken until the end. Runs in time-boxed slices and resumes from the saved page,
  * so it works within serverless time limits and never stops at 50 or 500 messages.
  */
-export async function fullScan(mailbox: string, budgetMs = 240_000) {
+export async function fullScan(mailbox: string, budgetMs = 45_000) {
   const key = `gmail:${mailbox}`;
   const gmail = await gmailFor(mailbox);
   const state = await getSyncState(key);
@@ -197,7 +203,7 @@ export async function fullScan(mailbox: string, budgetMs = 240_000) {
   }
   const started = Date.now();
   do {
-    const res = await gmail.users.messages.list({ userId: "me", maxResults: 100, pageToken, includeSpamTrash: false });
+    const res = await gmail.users.messages.list({ userId: "me", maxResults: 40, pageToken, includeSpamTrash: false });
     await processBatch(gmail, (res.data.messages || []).map((x) => x.id!), stats);
     pageToken = res.data.nextPageToken || undefined;
     await setSyncState(key, { full_scan_page: pageToken || null, full_scan_done: !pageToken, stats });

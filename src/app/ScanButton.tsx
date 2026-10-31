@@ -10,8 +10,8 @@ export default function ScanButton({ done }: { done: boolean }) {
     try {
       for (;;) {
         const r = await fetch("/api/sync/gmail", { method: "POST" });
-        if (!r.ok) throw new Error(`השרת החזיר ${r.status}`);
-        const j = await r.json();
+        const j = await r.json().catch(() => ({}));
+        if (!r.ok) throw new Error(j.error || `השרת החזיר ${r.status}`);
         const s = j.stats || {};
         setMsg(`נבדקו ${s.seen || 0} מיילים · ${s.invoice || 0} חשבוניות נשמרו ב־Drive · ${s.link || 0} להורדה ידנית`);
         if (j.done) break;

@@ -115,6 +115,16 @@ create table if not exists scanned_messages (
   scanned_at     timestamptz not null default now()
 );
 
+-- Per-message failures with the reason, retried up to 3 times
+create table if not exists scan_errors (
+  message_id     text primary key,
+  stage          text,
+  error          text not null,
+  attempts       int not null default 1,
+  last_at        timestamptz not null default now()
+);
+
+alter table scan_errors       enable row level security;
 alter table google_accounts   enable row level security;
 alter table sync_state        enable row level security;
 alter table vendors           enable row level security;
