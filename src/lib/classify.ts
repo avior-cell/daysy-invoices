@@ -13,6 +13,6 @@ export function exclusionReason(vendor: string, purpose: string, source: "bank" 
   )
     return "עמלות, ריבית ומט״ח";
   if (source === "bank" && /כרטיס|ישראכרט|מסטרקארד|ויזה|לאומי קארד|כאל/i.test(vendor)) return "חיוב כרטיס מרוכז";
-  if (/ויוואה/.test(vendor)) return "העברה פנימית";
+  if (/ויוואה|פקדון|פיקדון|סגירה|ניוד/.test(vendor)) return "העברה פנימית";
   return null;
 }
