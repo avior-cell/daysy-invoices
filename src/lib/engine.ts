@@ -2,6 +2,7 @@ import { db } from "./db";
 import { gmailFor } from "./google";
 import { processMessage } from "./gmail";
 import { getSetting, setSetting } from "./settings";
+import { driveListStep, processDriveFile } from "./driveImport";
 
 /**
  * Background engine. One tick (every minute, from Supabase pg_cron) does three things within a time budget:
@@ -90,7 +91,7 @@ async function processStep(budgetEnd: number, concurrency = 3) {
         continue;
       }
       try {
-        const result = await processMessage(gmail, id);
+        const result = id.startsWith("drive:") ? await processDriveFile(id.slice(6)) : await processMessage(gmail, id);
         stats[result] = (stats[result] || 0) + 1;
         await db().from("scanned_messages").upsert({ message_id: id, result });
         await db().from("queue").update({ status: "done", result, error: null, updated_at: new Date().toISOString() }).eq("message_id", id);
@@ -125,6 +126,7 @@ export async function tick(budgetMs = 50_000) {
   const end = Date.now() + budgetMs;
   const list = await listStep(end);
   const fresh = await historyStep().catch(() => 0);
+  await driveListStep().catch(() => 0);
   const processed = await processStep(end);
   const { data: progress } = await db().rpc("queue_progress");
   return { listed: list.listed, listingDone: list.done, fresh, processed, progress };
