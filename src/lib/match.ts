@@ -40,6 +40,9 @@ const ALIASES: [RegExp, string][] = [
   [/גייטפורט|gateport/i, "gateport"],
   [/יוניקו|unico/i, "unico"],
   [/אייר דיגיטל|air digital/i, "air"],
+  // Import payments to the Daysy maker show up in the bank as "תש. יבוא פתוח" with m.i.s.s or inv<number>
+  [/m\.?i\.?s\.?s|תש\. יבוא|יבוא פתוח/i, "miss"],
+  [/tiktok|טיקטוק/i, "tiktok"],
 ];
 const alias = (s: string) => ALIASES.find(([re]) => re.test(s))?.[1] ?? null;
 const STOP = /^(בעמ|ltd|inc|the|com|www|חשבונית|invoice|receipt|קבלה|מספר|noreply|no-reply)$/;

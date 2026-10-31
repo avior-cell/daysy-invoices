@@ -1,6 +1,6 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { matchAll } from "./match.ts";
+import { matchAll, vendorSimilarity } from "./match.ts";
 import { exclusionReason } from "./classify.ts";
 import { invoiceLinks } from "./links.ts";
 
@@ -30,6 +30,11 @@ test("rejected pair is not matched again", () => {
   const exp = [{ id: "e1", date: "2026-10-14", vendor_text: "Meta", amount: 10, currency: "ILS" }];
   const inv = [{ id: "i1", doc_date: "2026-10-14", vendor_name: "Meta", amount: 10, currency: "ILS" }];
   assert.equal(matchAll(exp, inv, { rejected: new Set(["e1:i1"]) }).length, 0);
+});
+
+test("import payments match the maker's invoices", () => {
+  const e = { id: "e", date: "2026-08-24", vendor_text: "תש. יבוא פתוח", purpose: "inv254479 pay", amount: 2083.33, currency: "EUR" };
+  assert.equal(vendorSimilarity(e, { id: "i", doc_date: "2026-06-15", vendor_name: "M.I.S.S. GmbH", amount: 6250, currency: "EUR" }), 1);
 });
 
 test("exclusions cover loans, interest spelling and salary", () => {

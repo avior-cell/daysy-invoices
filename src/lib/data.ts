@@ -17,7 +17,13 @@ export type InvoiceRow = Invoice & {
   source: string;
   doc_number: string | null;
   doc_type: string | null;
+  /** Already uploaded to the accountant's Sumit, so it counts as delivered */
+  inSumit?: boolean;
 };
+
+/** Documents that can cover several charges: a monthly statement, or a supplier invoice paid in installments */
+export const isShared = (i: InvoiceRow) => i.doc_type === "statement";
+const NOT_MATCHABLE = new Set(["statement", "fee_invoice", "fee_report"]);
 export type FeeRow = { key: string; name: string; st: Status; inv: InvoiceRow | null };
 
 export const FEES = [
@@ -51,13 +57,23 @@ export async function loadMonth(month: string) {
   const [{ data: exps }, { data: invs }, { data: links }, { data: fees }] = await Promise.all([
     db().from("expenses").select("*").eq("month", month).order("date", { ascending: false }),
     // Invoices can be dated a little before or after the charge
-    db().from("invoices").select(INV_COLS).eq("is_invoice", true).in("month", [addMonth(month, -1), month, addMonth(month, 1)]),
+    // Invoices can be dated a little before or after the charge; import invoices are paid in installments months later
+    db().from("invoices").select(INV_COLS).eq("is_invoice", true).in("month", [addMonth(month, -3), addMonth(month, -2), addMonth(month, -1), month, addMonth(month, 1)]),
     db().from("matches").select("expense_id, invoice_id, kind"),
     db().from("fee_requirements").select("*").eq("month", month),
   ]);
   const expenses = (exps || []).map((e) => ({ ...e, amount: Number(e.amount), orig_amount: e.orig_amount == null ? null : Number(e.orig_amount) }));
-  const invoices = (invs || []).map((i) => ({ ...i, amount: i.amount == null ? null : Number(i.amount) })) as InvoiceRow[];
+  const norm = (i: Record<string, unknown>) =>
+    ({ ...i, amount: i.amount == null ? null : Number(i.amount), inSumit: String(i.drive_url || "").startsWith("https://app.sumit") }) as InvoiceRow;
+  const invoices = (invs || []).map(norm);
   const byId = new Map(invoices.map((i) => [i.id, i]));
+  // A manual link can point at an invoice outside the window (an old import invoice): fetch those too
+  const ids = new Set(expenses.map((e) => e.id));
+  const missingIds = [...new Set((links || []).filter((l) => l.kind !== "rejected" && ids.has(l.expense_id) && !byId.has(l.invoice_id)).map((l) => l.invoice_id))];
+  if (missingIds.length) {
+    const { data: extra } = await db().from("invoices").select(INV_COLS).in("id", missingIds);
+    for (const i of extra || []) byId.set(i.id, norm(i));
+  }
   const manual = new Map<string, string>();
   const rejected = new Set<string>();
   const usedManual = new Set<string>();
@@ -69,7 +85,7 @@ export async function loadMonth(month: string) {
     }
   }
   const required = expenses.filter((e) => (e.status === "required" || (e.status === "auto" && !e.exclusion)) && !manual.has(e.id));
-  const free = invoices.filter((i) => !usedManual.has(i.id));
+  const free = invoices.filter((i) => !usedManual.has(i.id) && !NOT_MATCHABLE.has(i.doc_type || ""));
   const auto = new Map(matchAll(required, free, { rejected }).map((m) => [m.expense_id, m]));
 
   const rows: Row[] = expenses.map((e) => {
@@ -110,20 +126,28 @@ export async function loadMonth(month: string) {
     suggest: count("suggest"),
     missing: count("missing"),
     missingIls: ils(req.filter((r) => r.st === "missing" || r.st === "suggest")),
+    inSumit: req.filter((r) => r.st === "filed" && r.inv?.inSumit).length,
     feesOpen: feeRows.filter((f) => f.st === "missing" || f.st === "nofile").length,
   };
   return { rows, feeRows, orphans, kpi, invoices };
 }
 
-/** Candidate invoices for one expense, best first: exact amount, then vendor similarity, then date. */
+/**
+ * Candidate invoices for one expense, best first: exact amount, then vendor similarity, then date.
+ * A statement or a larger invoice from the same vendor stays available after it is used, because one
+ * document can cover several charges (monthly Google Ads report, import invoice paid in installments).
+ */
 export function candidatesFor(e: Expense, invoices: InvoiceRow[], used: Set<string>) {
   return invoices
-    .filter((i) => !used.has(i.id))
+    .filter((i) => i.doc_type !== "fee_invoice" && i.doc_type !== "fee_report")
     .map((i) => {
       const exact = amountMatches(e, i);
+      const sim = vendorSimilarity(e, i);
+      const covers = !exact && sim >= 0.5 && i.amount != null && (isShared(i) || i.amount > (e.currency === i.currency ? e.amount : e.orig_amount ?? Infinity));
       const days = i.doc_date ? Math.abs(Date.parse(e.date) - Date.parse(i.doc_date)) / 864e5 : 120;
-      return { i, exact, score: (exact ? 2 : 0) + vendorSimilarity(e, i) - Math.min(days, 120) / 120 };
+      return { i, exact, covers, score: (exact ? 2 : 0) + (covers ? 1 : 0) + sim - Math.min(days, 120) / 120 };
     })
+    .filter((x) => !used.has(x.i.id) || x.covers)
     .filter((x) => x.score > 0.2)
     .sort((a, b) => b.score - a.score)
     .slice(0, 5);

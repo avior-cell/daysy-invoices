@@ -32,6 +32,11 @@ export default async function Expenses({ searchParams }: { searchParams: { m?: s
         <h1>הוצאות · {monthName(month)}</h1>
         <span className="sub">כל החיובים בבנק ובאשראי</span>
       </div>
+      <div style={{ display: "flex", gap: 8, flexWrap: "wrap", marginBottom: 10 }}>
+        <a className="btn small" href={`/api/export?m=${month}`}>
+          ייצוא לאקסל
+        </a>
+      </div>
       <nav className="chips" aria-label="סינון">
         {FILTERS.map(([k, l]) => (
           <Link key={k} className="chip" aria-current={f === k ? "true" : undefined} href={`/expenses?m=${month}&f=${k}`}>
@@ -57,7 +62,7 @@ export default async function Expenses({ searchParams }: { searchParams: { m?: s
                 </div>
                 <div style={{ display: "grid", justifyItems: "end", gap: 4 }}>
                   <span className="amt">{money(r.e.amount, r.e.currency)}</span>
-                  <span className={`pill ${r.st}`}>{STATUS_LABEL[r.st]}</span>
+                  <span className={`pill ${r.st}`}>{r.st === "filed" && r.inv?.inSumit ? "בסאמיט" : STATUS_LABEL[r.st]}</span>
                 </div>
               </summary>
               <div className="drawer">
@@ -69,7 +74,11 @@ export default async function Expenses({ searchParams }: { searchParams: { m?: s
                       {r.how === "auto" ? " · התאמה אוטומטית" : ""}
                     </span>
                     <span style={{ display: "flex", gap: 6 }}>
-                      {r.inv.drive_url && <a className="btn small" href={r.inv.drive_url} target="_blank" rel="noopener">פתיחה</a>}
+                      {r.inv.drive_url && (
+                        <a className="btn small" href={r.inv.drive_url} target="_blank" rel="noopener">
+                          {r.inv.inSumit ? "בסאמיט" : "פתיחה"}
+                        </a>
+                      )}
                       {r.inv.download_url && !r.inv.drive_url && <a className="btn small" href={r.inv.download_url} target="_blank" rel="noopener">הורדה מהקישור</a>}
                     </span>
                   </div>
@@ -80,7 +89,11 @@ export default async function Expenses({ searchParams }: { searchParams: { m?: s
                     <div className="cand" key={c.i.id}>
                       <span>
                         {c.i.vendor_name || c.i.email_from} · <span className="num">{money(c.i.amount, c.i.currency)}</span> · <span className="num">{day(c.i.doc_date)}</span>
-                        {!c.exact && <span className="sub"> · סכום שונה</span>}
+                        {c.covers ? (
+                          <span className="sub"> · {c.i.doc_type === "statement" ? "דוח חודשי שמכסה כמה חיובים" : "חשבונית ששולמה בכמה תשלומים"}</span>
+                        ) : (
+                          !c.exact && <span className="sub"> · סכום שונה</span>
+                        )}
                       </span>
                       <ActionButton action={approveMatch.bind(null, r.e.id, c.i.id)} label="שייך" />
                     </div>

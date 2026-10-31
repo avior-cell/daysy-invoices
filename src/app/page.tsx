@@ -38,7 +38,13 @@ export default async function Home({ searchParams }: { searchParams: { m?: strin
           <div className="hero-facts">
             <h1>סגירת {monthName(month)}</h1>
             <div className="big">
-              <span className="num">{kpi.filed}</span> מתוך <span className="num">{kpi.required}</span> הוצאות עם חשבונית בתיקייה
+              <span className="num">{kpi.filed}</span> מתוך <span className="num">{kpi.required}</span> הוצאות עם חשבונית
+              {kpi.inSumit ? (
+                <span className="sub">
+                  {" "}
+                  · <span className="num">{kpi.inSumit}</span> מהן כבר בסאמיט
+                </span>
+              ) : null}
             </div>
             <div className="sub">
               הוצאות בפועל <span className="num">{ils(kpi.spend)}</span> · עוד חסר כיסוי ל־<span className="num">{ils(kpi.missingIls)}</span> ·{" "}
@@ -57,6 +63,9 @@ export default async function Home({ searchParams }: { searchParams: { m?: strin
                 </a>
               )}
               <Upload month={month} label="העלאת חשבונית" primary />
+              <a className="btn" href={`/api/export?m=${month}`}>
+                ייצוא לאקסל
+              </a>
             </div>
           </div>
         </div>
@@ -151,7 +160,7 @@ export default async function Home({ searchParams }: { searchParams: { m?: strin
                 <div className="title">{f.name}</div>
                 <div className="meta">{f.inv ? `${f.inv.vendor_name || ""} · ${money(f.inv.amount, f.inv.currency)}` : "לא נמצאה חשבונית לחודש הזה"}</div>
               </div>
-              <span className={`pill ${f.st}`}>{f.st === "filed" ? "בתיקייה" : f.st === "excluded" ? "לא נדרש" : f.st === "nofile" ? "חסר קובץ" : "חסרה"}</span>
+              <span className={`pill ${f.st}`}>{f.st === "filed" ? (f.inv?.inSumit ? "בסאמיט" : "בתיקייה") : f.st === "excluded" ? "לא נדרש" : f.st === "nofile" ? "חסר קובץ" : "חסרה"}</span>
               {f.st !== "filed" && f.st !== "excluded" && (
                 <div className="actions">
                   <Upload feeKey={f.key} month={month} label="העלאה" />
