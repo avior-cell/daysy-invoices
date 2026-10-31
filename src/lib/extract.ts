@@ -82,9 +82,16 @@ export async function extract(ctx: Context, file?: { bytes: Buffer; mime: string
   } else {
     content.push({ type: "text", text: `${header}\nEMAIL BODY:\n${(ctx.body || "").slice(0, 3000)}` });
   }
-  const res = await ai().messages.create({ model: MODEL(), max_tokens: 400, system: RULES, messages: [{ role: "user", content }] });
-  const text = res.content.map((b) => (b.type === "text" ? b.text : "")).join("");
-  return parseJson(text);
+  content.push({ type: "text", text: "Answer with the JSON object only, no other text." });
+  const ask = async (c: Anthropic.MessageParam["content"]) => {
+    const res = await ai().messages.create({ model: MODEL(), max_tokens: 1000, system: RULES, messages: [{ role: "user", content: c }] });
+    return parseJson(res.content.map((b) => (b.type === "text" ? b.text : "")).join(""));
+  };
+  const first = await ask(content);
+  if (first || !file || file.mime !== "application/pdf") return first;
+  // The page itself could not be read: fall back to the text layer, reversed Hebrew and all
+  const text = await pdfToText(file.bytes);
+  return text ? ask([{ type: "text", text: `${header}\nDOCUMENT TEXT (Hebrew may be reversed):\n${text}\n\nAnswer with the JSON object only.` }]) : null;
 }
 
 /** Cheap pre-filter so obvious non-invoices never cost a model call. */
