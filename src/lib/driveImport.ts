@@ -67,7 +67,9 @@ export async function processDriveFile(fileId: string): Promise<string> {
   if (same) return "duplicate";
 
   const x = await extract({ fileName: name, from: "Drive", subject: "ארכיון חשבוניות ב־Drive" }, { bytes, mime });
-  if (!x || !x.is_invoice) return "not_invoice";
+  // An archive of invoices: keep anything that reads as a tax document with an amount, even if the model hesitated
+  const looksLikeDoc = !!x && (x.is_invoice || (x.doc_type !== "other" && x.amount != null));
+  if (!x || !looksLikeDoc) return "not_invoice";
 
   // The same document saved from another source (mail, Sumit) has different bytes: compare what it says
   if (x.amount != null) {

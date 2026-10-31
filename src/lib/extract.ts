@@ -17,6 +17,8 @@ export type Extracted = {
 
 const RULES = `You read documents received by Vivea Collective Ltd (brand Daysy, Israel; owner Avior Hakmon).
 Decide whether the document is a tax invoice, receipt, invoice-receipt or credit note (חשבונית מס, קבלה, חשבונית מס קבלה, חשבונית זיכוי, invoice, receipt) for something the company or Avior bought or paid for.
+Any invoice or receipt issued TO Vivea Collective, Daysy, Avior Hakmon or Erez is a business expense and counts, including ad platform receipts (Meta, Google), customs and import brokers, freelancers and suppliers.
+Text extracted from Hebrew PDFs is often reversed (characters right to left in reverse order): read it anyway.
 It is NOT an invoice if it is marketing, a newsletter, a quote, a payment request the company sent to others, a bank or card statement, a shipping notice, a failed payment, or unrelated personal mail.
 Return ONLY a JSON object:
 {"is_invoice": boolean, "doc_type": "tax_invoice"|"receipt"|"invoice_receipt"|"credit_note"|"other", "vendor_name": short issuer name or null, "vendor_tax_id": issuer ח.פ/ע.מ/VAT id or null, "amount": final total paid including VAT as a number or null, "currency": "ILS"|"USD"|"EUR"|"GBP", "doc_date": "YYYY-MM-DD" or null, "doc_number": string or null, "confidence": 0..1}`;
