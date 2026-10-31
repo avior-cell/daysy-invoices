@@ -8,6 +8,7 @@ import { ils, money } from "@/components/fmt";
 import { addMonth, billingLink, loadMonth, monthName, openByVendor } from "@/lib/data";
 import { setFee } from "./actions";
 import { db } from "@/lib/db";
+import { expectedPayments } from "@/lib/groups";
 
 export const dynamic = "force-dynamic";
 
@@ -60,7 +61,7 @@ function headline(pct: number, open: number) {
 export default async function Home({ searchParams }: { searchParams: { m?: string } }) {
   const me = await requireMe();
   const { month, months } = await pickMonth(searchParams.m);
-  const { rows, feeRows, kpi } = await loadMonth(month);
+  const [{ rows, feeRows, kpi }, expected] = await Promise.all([loadMonth(month), expectedPayments().catch(() => [])]);
   const since = new Date(Date.now() - 48 * 3600e3).toISOString();
   const [{ data: folder }, { data: fresh }, { count: freshTotal }] = await Promise.all([
     db().from("drive_folders").select("folder_id").eq("month", month).maybeSingle(),
@@ -141,6 +142,21 @@ export default async function Home({ searchParams }: { searchParams: { m?: strin
             </div>
           );
         })}
+
+        {expected.length > 0 && (
+          <div className="msg">
+            <span>תשלומים שעוד צפויים לצאת, על חשבוניות שכבר בתיק:</span>
+            <div className="mini">
+              {expected.map((x) => (
+                <div key={(x.doc || "") + x.total}>
+                  <span>{x.vendor}{x.doc ? `, ${x.doc}` : ""}{x.paid ? `, שולמו ${x.paid}` : ""}</span>
+                  <b className="num">{money(x.left, x.currency)}</b>
+                </div>
+              ))}
+            </div>
+            <span className="close">כשהתשלום יוצא, אשייך אותו לבד.</span>
+          </div>
+        )}
 
         {feesOpen.length > 0 && (
           <div className="msg">

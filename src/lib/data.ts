@@ -59,7 +59,7 @@ export async function loadMonth(month: string) {
     // Invoices can be dated a little before or after the charge
     // Invoices can be dated a little before or after the charge; import invoices are paid in installments months later
     db().from("invoices").select(INV_COLS).eq("is_invoice", true).in("month", [addMonth(month, -3), addMonth(month, -2), addMonth(month, -1), month, addMonth(month, 1)]),
-    db().from("matches").select("expense_id, invoice_id, kind"),
+    db().from("matches").select("expense_id, invoice_id, kind, amount"),
     db().from("fee_requirements").select("*").eq("month", month),
   ]);
   const expenses = (exps || []).map((e) => ({ ...e, amount: Number(e.amount), orig_amount: e.orig_amount == null ? null : Number(e.orig_amount) }));
@@ -93,6 +93,11 @@ export async function loadMonth(month: string) {
     const mid = manual.get(e.id);
     if (mid) {
       const inv = byId.get(mid) || null;
+      // One transfer paying several documents: if they do not add up to the transfer, the rest is still missing
+      const parts = (links || []).filter((l) => l.expense_id === e.id && l.kind === "group");
+      const covered = parts.reduce((t, l) => t + Number(l.amount || 0), 0);
+      if (parts.length && Math.round(covered * 100) < Math.round(e.amount * 100))
+        return { e, st: "missing", inv, how: "manual", why: `חסרה חשבונית על ${(e.currency === "ILS" ? "₪" : e.currency + " ") + (e.amount - covered).toLocaleString("he-IL", { maximumFractionDigits: 2 })}` };
       return { e, st: inv?.drive_url ? "filed" : "nofile", inv, how: "manual" };
     }
     const m = auto.get(e.id);

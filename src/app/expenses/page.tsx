@@ -52,7 +52,7 @@ export default async function Expenses({ searchParams }: { searchParams: { m?: s
                   <div className="meta">
                     {r.e.source === "card" ? "כרטיס" : "העברה"}, <span className="num">{day(r.e.date)}</span>
                     {r.e.purpose ? `, ${r.e.purpose}` : ""}
-                    {r.st === "excluded" && r.why ? `, ${r.why}` : ""}
+                    {r.why ? `, ${r.why}` : ""}
                   </div>
                 </div>
                 <div style={{ display: "grid", justifyItems: "end", gap: 4 }}>
