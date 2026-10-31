@@ -68,11 +68,18 @@ async function historyStep() {
   return ids.size;
 }
 
-async function processStep(budgetEnd: number, concurrency = 6) {
+// Gmail allows ~15,000 quota units per user per minute; a message with attachments costs 10 to 30.
+// Quota and rate-limit errors are not the message's fault: put it back without spending an attempt,
+// and stop this tick so the next one starts with a fresh minute.
+const isRateLimit = (status: number | string, msg: string) =>
+  status == 429 || /quota exceeded|rate limit|ratelimitexceeded|userratelimit|overloaded/i.test(msg);
+
+async function processStep(budgetEnd: number, concurrency = 3) {
   const gmail = await gmailFor(MAILBOX());
   const stats: Record<string, number> = {};
+  let throttled = false;
   const worker = async () => {
-    while (Date.now() < budgetEnd - 15_000) {
+    while (!throttled && Date.now() < budgetEnd - 15_000) {
       const { data, error } = await db().rpc("claim_queue", { n: 1 });
       if (error) throw error;
       const id = (data as string[] | null)?.[0];
@@ -89,9 +96,19 @@ async function processStep(budgetEnd: number, concurrency = 6) {
         await db().from("queue").update({ status: "done", result, error: null, updated_at: new Date().toISOString() }).eq("message_id", id);
       } catch (e) {
         const err = e as Error & { status?: number; response?: { status?: number } };
-        const msg = `${err.status || err.response?.status || ""} ${err.message || String(e)}`.trim().slice(0, 500);
-        stats.error = (stats.error || 0) + 1;
+        const status = err.status || err.response?.status || "";
+        const msg = `${status} ${err.message || String(e)}`.trim().slice(0, 500);
         const { data: row } = await db().from("queue").select("attempts").eq("message_id", id).maybeSingle();
+        if (isRateLimit(status, msg)) {
+          throttled = true;
+          stats.throttled = (stats.throttled || 0) + 1;
+          await db()
+            .from("queue")
+            .update({ status: "pending", attempts: Math.max(0, (row?.attempts || 1) - 1), error: msg, updated_at: new Date().toISOString() })
+            .eq("message_id", id);
+          continue;
+        }
+        stats.error = (stats.error || 0) + 1;
         const final = (row?.attempts || 0) >= 3;
         await db()
           .from("queue")
