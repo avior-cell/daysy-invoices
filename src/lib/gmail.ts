@@ -101,6 +101,8 @@ export async function processMessage(gmail: Gmail, id: string): Promise<string> 
   if (!looksLikeInvoice(subject, from, body, docs.length > 0) && !links.length) return "not_invoice";
 
   let result = "not_invoice";
+  // One email often carries the same charge twice (Stripe sends Invoice + Receipt): file it once
+  const filed = new Set<string>();
   // 1. Attached PDFs and images
   for (const [n, p] of docs.slice(0, 4).entries()) {
     const att = p.body?.attachmentId
@@ -111,6 +113,9 @@ export async function processMessage(gmail: Gmail, id: string): Promise<string> 
     const mime = p.mimeType === "application/octet-stream" ? "application/pdf" : p.mimeType || "application/pdf";
     const x = await extract({ from, subject, date, fileName: p.filename || "", body }, { bytes, mime });
     if (!x?.is_invoice) continue;
+    const key = `${x.amount}|${x.currency}`;
+    if (x.amount != null && filed.has(key)) continue;
+    filed.add(key);
     result = await fileInvoice(x, bytes, mime, p.filename || "invoice.pdf", { ...base, source: "gmail", source_ref: `${id}:${n}` }, date);
   }
   if (result !== "not_invoice") return result;
