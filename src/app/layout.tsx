@@ -11,8 +11,13 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
         <link rel="preconnect" href="https://fonts.googleapis.com" />
         <link
           rel="stylesheet"
-          href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans+Hebrew:wght@400;500;600;700&family=IBM+Plex+Mono:wght@400;500&display=swap"
+          href="https://fonts.googleapis.com/css2?family=Secular+One&family=Rubik:wght@400;500;600;700&display=swap"
         />
+        <link rel="manifest" href="/manifest.webmanifest" />
+        <link rel="apple-touch-icon" href="/icon-192.png" />
+        <meta name="theme-color" content="#2e3fe0" />
+        <meta name="apple-mobile-web-app-capable" content="yes" />
+        <meta name="apple-mobile-web-app-title" content="Money Buddy" />
       </head>
       <body>{children}</body>
     </html>
