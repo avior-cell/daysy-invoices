@@ -42,9 +42,15 @@ export async function autoGroup() {
   const rejected = new Set(ms.filter((m) => m.kind === "rejected").map((m) => `${m.expense_id}:${m.invoice_id}`));
   const paid = new Map<string, number>();
   const usedWhole = new Set<string>();
+  const expById = new Map(exps.map((e) => [e.id, e]));
+  const invById = new Map(invs.map((i) => [i.id, i]));
   for (const m of ms) {
-    if (m.kind === "installment" || m.kind === "group") paid.set(m.invoice_id, (paid.get(m.invoice_id) || 0) + Number(m.amount || 0));
-    else if (m.kind !== "rejected") usedWhole.add(m.invoice_id);
+    if (m.kind === "rejected") continue;
+    // A link someone approved by hand counts as that transfer paying the invoice, so the rest can still be allocated
+    const e = expById.get(m.expense_id), i = invById.get(m.invoice_id);
+    const part = m.amount != null ? Number(m.amount) : e && i && e.currency === i.currency ? Math.min(e.amount, i.amount) : null;
+    if (part == null) usedWhole.add(m.invoice_id);
+    else paid.set(m.invoice_id, (paid.get(m.invoice_id) || 0) + part);
   }
   const rows: { expense_id: string; invoice_id: string; kind: string; amount: number; created_by: string }[] = [];
   const add = (e: E, i: I, kind: string, amount: number) => {
@@ -117,9 +123,13 @@ export async function expectedPayments() {
   const out: { vendor: string; doc: string | null; currency: string; left: number; paid: number; total: number }[] = [];
   for (const f of FAMILIES.filter((x) => x.mode === "installments")) {
     for (const i of invs.filter((x) => f.inv.test(x.vendor_name || "") && x.doc_date >= first)) {
-      const links = ms.filter((m) => m.invoice_id === i.id && m.kind === "installment");
-      if (ms.some((m) => m.invoice_id === i.id && (m.kind === "manual" || m.kind === "auto"))) continue;
-      const done = links.reduce((s, m) => s + Number(m.amount || 0), 0);
+      const links = ms.filter((m) => m.invoice_id === i.id && m.kind !== "rejected");
+      const amt = (m: (typeof ms)[number]) => {
+        if (m.amount != null) return Number(m.amount);
+        const e = exps.find((x) => x.id === m.expense_id);
+        return e && e.currency === i.currency ? Math.min(e.amount, i.amount) : i.amount;
+      };
+      const done = links.reduce((s, m) => s + amt(m), 0);
       const left = i.amount - done;
       if (left > links.length * 0.01 + 0.005) out.push({ vendor: i.vendor_name || f.key, doc: i.doc_number, currency: i.currency, left, paid: links.length, total: i.amount });
     }
