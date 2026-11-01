@@ -4,6 +4,7 @@ import { driveFor } from "./google";
 import { extract } from "./extract";
 import { ensureMonthFolder, invoiceFileName } from "./drive";
 import { getSetting, setSetting } from "./settings";
+import { findDuplicate } from "./dedupe";
 
 /**
  * Import an existing Drive folder of invoices (for example the archive kept before Money Buddy).
@@ -49,11 +50,6 @@ export async function driveListStep() {
   return ids.length;
 }
 
-const near = (a: string, days: number) => {
-  const t = Date.parse(a);
-  return [new Date(t - days * 864e5).toISOString().slice(0, 10), new Date(t + days * 864e5).toISOString().slice(0, 10)];
-};
-
 export async function processDriveFile(fileId: string): Promise<string> {
   const drive = await driveFor(OWNER());
   const meta = await drive.files.get({ fileId, fields: "id, name, mimeType, createdTime", supportsAllDrives: true });
@@ -72,19 +68,7 @@ export async function processDriveFile(fileId: string): Promise<string> {
   if (!x || !looksLikeDoc) return x ? `not_invoice:${x.doc_type}:${x.amount ?? ""}` : "not_invoice:unread";
 
   // The same document saved from another source (mail, Sumit) has different bytes: compare what it says
-  if (x.amount != null) {
-    let q = db().from("invoices").select("id").eq("is_invoice", true).eq("amount", x.amount).eq("currency", x.currency || "ILS");
-    if (x.doc_number) {
-      const { data } = await q.eq("doc_number", x.doc_number).limit(1);
-      if (data?.length) return "duplicate";
-      q = db().from("invoices").select("id").eq("is_invoice", true).eq("amount", x.amount).eq("currency", x.currency || "ILS");
-    }
-    if (x.doc_date) {
-      const [a, b] = near(x.doc_date, 3);
-      const { data } = await q.gte("doc_date", a).lte("doc_date", b).limit(1);
-      if (data?.length) return "duplicate";
-    }
-  }
+  if (await findDuplicate(x)) return "duplicate";
 
   const date = x.doc_date || (meta.data.createdTime || new Date().toISOString()).slice(0, 10);
   const month = date.slice(0, 7);

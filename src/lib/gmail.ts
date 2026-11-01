@@ -1,6 +1,7 @@
 import { createHash } from "node:crypto";
 import type { gmail_v1 } from "googleapis";
 import { db } from "./db";
+import { findDuplicate } from "./dedupe";
 import { extract, looksLikeInvoice, type Extracted } from "./extract";
 import { fetchInvoice, invoiceLinks } from "./links";
 import { invoiceFileName, uploadToMonth } from "./drive";
@@ -60,6 +61,7 @@ async function fileInvoice(
   const sha256 = createHash("sha256").update(bytes).digest("hex");
   const { data: dup } = await db().from("invoices").select("id").eq("sha256", sha256).maybeSingle();
   if (dup) return "duplicate";
+  if (await findDuplicate(x)) return "duplicate";
   const date = x.doc_date || fallbackDate;
   const month = monthOf(date)!;
   const ext = (fileName.match(/\.([a-z0-9]{2,4})$/i)?.[1] || (mime === "application/pdf" ? "pdf" : "jpg")).toLowerCase();
