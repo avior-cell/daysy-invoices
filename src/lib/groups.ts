@@ -3,7 +3,7 @@ import { getSetting, setSetting } from "./settings";
 
 /**
  * Payments that do not map one to one onto invoices.
- *  - installments: one invoice paid in 2 to 4 transfers (M.I.S.S, paid from the open import account in EUR).
+ *  - installments: one invoice paid in 2 to 6 transfers (M.I.S.S, paid from the open import account in EUR).
  *    Each transfer is allocated to the invoice it is a clean fraction of, oldest first; what is left is an expected payment.
  *    A rounding difference of up to one cent per installment is accepted (3 x 8,333.33 for 25,000.00), never more.
  *  - combine: one transfer pays several documents (Eilat Gateport: import VAT plus brokerage). Linked when the documents
@@ -24,7 +24,7 @@ async function load() {
   const [{ data: ex }, { data: iv }, { data: ms }] = await Promise.all([
     db().from("expenses").select("id, date, vendor_text, amount, currency, status, exclusion"),
     db().from("invoices").select("id, doc_date, vendor_name, amount, currency, doc_number").eq("is_invoice", true).not("amount", "is", null),
-    db().from("matches").select("expense_id, invoice_id, kind, amount"),
+    db().from("matches").select("expense_id, invoice_id, kind, amount, created_by"),
   ]);
   const exps = (ex || []).map((e) => ({ ...e, amount: Number(e.amount) })) as E[];
   const invs = (iv || []).map((i) => ({ ...i, amount: Number(i.amount) })) as I[];
@@ -32,7 +32,12 @@ async function load() {
 }
 
 export async function autoGroup() {
-  const { exps, invs, ms } = await load();
+  const loaded = await load();
+  const { exps, invs } = loaded;
+  let ms = loaded.ms;
+  // Buddy's own installment and group links are recomputed from scratch every run, so a better allocation replaces an old one
+  const own = (m: { kind: string; created_by?: string | null }) => (m.kind === "installment" || m.kind === "group") && m.created_by === "באדי";
+  ms = ms.filter((m) => !own(m));
   const linked = new Set(ms.filter((m) => m.kind !== "rejected").map((m) => m.expense_id));
   const rejected = new Set(ms.filter((m) => m.kind === "rejected").map((m) => `${m.expense_id}:${m.invoice_id}`));
   const paid = new Map<string, number>();
@@ -61,7 +66,8 @@ export async function autoGroup() {
         // Prefer the invoice this transfer is a clean fraction of (8,333.33 of 25,000), then the oldest one
         const frac = (i: I) => {
           const r = i.amount / e.amount;
-          return Math.abs(r - Math.round(r)) * Math.round(r) * e.amount <= 0.05 && Math.round(r) >= 2 && Math.round(r) <= 4;
+          const k = Math.round(r);
+          return k >= 2 && k <= 6 && Math.abs(i.amount - k * e.amount) <= k * 0.01 + 1e-9;
         };
         const pick = ok.find(frac) || ok[0];
         if (pick) add(e, pick, "installment", Math.min(e.amount, pick.amount - (paid.get(pick.id) || 0)));
@@ -88,6 +94,7 @@ export async function autoGroup() {
       }
     }
   }
+  await db().from("matches").delete().in("kind", ["installment", "group"]).eq("created_by", "באדי");
   if (rows.length) {
     const { error } = await db().from("matches").upsert(rows, { onConflict: "expense_id,invoice_id", ignoreDuplicates: true });
     if (error) throw error;
