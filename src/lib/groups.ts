@@ -75,7 +75,10 @@ export async function autoGroup() {
           const k = Math.round(r);
           return k >= 2 && k <= 6 && Math.abs(i.amount - k * e.amount) <= k * 0.01 + 1e-9;
         };
-        const pick = ok.find(frac) || ok[0];
+        // Without a clean fraction, only a transfer that settles exactly what is left of an invoice is allocated.
+        // Anything else stays open for a person to decide, instead of being forced onto the oldest invoice.
+        const settles = (i: I) => Math.abs(i.amount - (paid.get(i.id) || 0) - e.amount) <= 0.06;
+        const pick = ok.find(frac) || ok.find(settles);
         if (pick) add(e, pick, "installment", Math.min(e.amount, pick.amount - (paid.get(pick.id) || 0)));
       }
     } else {
