@@ -8,7 +8,7 @@ export function exclusionReason(vendor: string, purpose: string, source: "bank" 
   if (extra.some((w) => w && all.includes(w))) return "החרגה ידנית";
   if (/ביטוח לאומי|מס הכנסה|מע"?מ|מע”מ|רשות המסים|מנורה|פנסיה|גמל|קופת/.test(vendor) || /משכורת|שכר עבודה/.test(purpose)) return "שכר ומיסים";
   if (
-    /^(עמ'|ע\.מ|עמלת|דמי טי?פול|השלמה למינ)|ריבית|רבית|הלוו?אה|הלו'|הלו׳|פירעון מידי|מט.?ח|מטח/.test(vendor) ||
+    /^(עמ'|ע\.מ|עמלת|דמי טי?פול|השלמה למינ)|ריבית|רבית|הלוו?אה|הלו'|הלו׳|פירעון מידי|מטח-קניה|קנית מט.?ח|המרת מט.?ח/.test(vendor) ||
     ["TRADING", "LOAN", "RETURN"].includes(category)
   )
     return "עמלות, ריבית ומט״ח";

@@ -11,7 +11,7 @@ import { getSetting, setSetting } from "./settings";
  */
 type Family = { key: string; exp: RegExp; inv: RegExp; mode: "installments" | "combine" };
 export const FAMILIES: Family[] = [
-  { key: "miss", exp: /תש\. יבוא|יבוא פתוח|m\.?i\.?s\.?s/i, inv: /m\.?i\.?s\.?s/i, mode: "installments" },
+  { key: "miss", exp: /תש\. יבוא|יבוא פתוח|העברת מט.?ח|m\.?i\.?s\.?s/i, inv: /m\.?i\.?s\.?s/i, mode: "installments" },
   { key: "gateport", exp: /גייטפורט|gateport|אגף המכס/i, inv: /גייטפורט|gateport|עמילות יבוא/i, mode: "combine" },
 ];
 
@@ -67,7 +67,7 @@ export async function autoGroup() {
       for (const e of fe) {
         const ok = fi.filter((i) => {
           const left = i.amount - (paid.get(i.id) || 0);
-          return i.currency === e.currency && !rejected.has(`${e.id}:${i.id}`) && days(e.date, i.doc_date) >= -10 && days(e.date, i.doc_date) <= 200 && c(left) >= c(e.amount) - 1;
+          return i.currency === e.currency && !rejected.has(`${e.id}:${i.id}`) && days(e.date, i.doc_date) >= -30 && days(e.date, i.doc_date) <= 200 && c(left) >= c(e.amount) - 1;
         });
         // Prefer the invoice this transfer is a clean fraction of (8,333.33 of 25,000), then the oldest one
         const frac = (i: I) => {
