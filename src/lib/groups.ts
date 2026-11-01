@@ -100,7 +100,8 @@ export async function autoGroup() {
       }
     }
   }
-  await db().from("matches").delete().in("kind", ["installment", "group"]).eq("created_by", "באדי");
+  const del = await db().from("matches").delete().in("kind", ["installment", "group"]).eq("created_by", "באדי");
+  if (del.error) throw del.error;
   if (rows.length) {
     const { error } = await db().from("matches").upsert(rows, { onConflict: "expense_id,invoice_id", ignoreDuplicates: true });
     if (error) throw error;

@@ -129,7 +129,7 @@ export async function tick(budgetMs = 50_000) {
   const fresh = await historyStep().catch(() => 0);
   await driveListStep().catch(() => 0);
   const processed = await processStep(end);
-  await autoGroupStep().catch(() => 0);
+  await autoGroupStep().catch((e) => setSetting("auto_group_error", { at: new Date().toISOString(), message: String((e as Error)?.message || e).slice(0, 300) }));
   const { data: progress } = await db().rpc("queue_progress");
   return { listed: list.listed, listingDone: list.done, fresh, processed, progress };
 }
