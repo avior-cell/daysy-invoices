@@ -45,6 +45,7 @@ export default async function Settings({ searchParams }: { searchParams: { m?: s
           <div className="kv"><span><b>שלב 2 |</b> הבנק והכרטיס, דרך Financy</span>{banks ? ok : <span className="pill nofile">ממתין</span>}</div>
           <div className="kv"><span><b>שלב 3 |</b> שיתוף מוואטסאפ, דרך avior+buddy@daysy.co.il</span>{shared ? <span className="pill filed">פעיל</span> : <span className="pill nofile">עוד לא נוסה</span>}</div>
           <span className="close">{first ? "שלוש דקות, והקלסר שלך מתחיל להתמלא." : "הכל עובד ברקע, כל דקה."}</span>
+          {!first && <Link className="btn small" href={`/connections?m=${month}`}>כל המקורות</Link>}
         </div>
 
         {!first && (
